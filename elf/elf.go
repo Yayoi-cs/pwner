@@ -2,7 +2,8 @@ package elf
 
 import (
 	"debug/elf"
-	"log"
+	"pwner/tube"
+	"pwner/utils"
 	"sync"
 )
 
@@ -16,7 +17,7 @@ type ELFer struct {
 func ELF(path string) *ELFer {
 	file, err := elf.Open(path)
 	if err != nil {
-		log.Fatalf("failed to open ELF: %v", err)
+		utils.Fatal("failed to open ELF: %v", err)
 	}
 	defer file.Close()
 
@@ -77,7 +78,7 @@ func (e *ELFer) Sym(name string) uint64 {
 	if addr, exists := e.sym[name]; exists {
 		return addr
 	}
-	log.Fatalf("symbol '%s' not found", name)
+	utils.Fatal("symbol '%s' not found", name)
 	return 0
 }
 
@@ -86,14 +87,14 @@ func (e *ELFer) Plt(name string) uint64 {
 	if addr, exists := e.sym[pltName]; exists {
 		return addr
 	}
-	log.Fatalf("PLT entry '%s' not found", name)
+	utils.Fatal("PLT entry '%s' not found", name)
 	return 0
 }
 
 func (e *ELFer) Got(name string) uint64 {
 	file, err := elf.Open(e.path)
 	if err != nil {
-		log.Fatalf("failed to open ELF: %v", err)
+		utils.Fatal("failed to open ELF: %v", err)
 	}
 	defer file.Close()
 
@@ -102,7 +103,7 @@ func (e *ELFer) Got(name string) uint64 {
 		gotSection = file.Section(".got")
 	}
 	if gotSection == nil {
-		log.Fatalf("GOT section not found")
+		utils.Fatal("GOT section not found")
 	}
 
 	relPltSection := file.Section(".rela.plt")
@@ -110,12 +111,12 @@ func (e *ELFer) Got(name string) uint64 {
 		relPltSection = file.Section(".rel.plt")
 	}
 	if relPltSection == nil {
-		log.Fatalf("relocation section not found")
+		utils.Fatal("relocation section not found")
 	}
 
 	dynSymbols, err := file.DynamicSymbols()
 	if err != nil {
-		log.Fatalf("failed to get dynamic symbols: %v", err)
+		utils.Fatal("failed to get dynamic symbols: %v", err)
 	}
 
 	data, _ := relPltSection.Data()
@@ -171,6 +172,10 @@ func (e *ELFer) Got(name string) uint64 {
 		}
 	}
 
-	log.Fatalf("GOT entry '%s' not found", name)
+	utils.Fatal("GOT entry '%s' not found", name)
 	return 0
+}
+
+func (e *ELFer) Process(arg ...string) *tube.Proc {
+	return tube.Process(append([]string{e.path}, arg...))
 }

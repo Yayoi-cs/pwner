@@ -5,9 +5,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
+	"pwner/utils"
+	"time"
 )
 
 type Proc struct {
@@ -19,34 +20,45 @@ type Proc struct {
 	scanner *bufio.Scanner
 }
 
-func Process(args []string, opts ...Options) (*Proc, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("no command specified")
+func Process(params ...interface{}) *Proc {
+	var args []string
+	var options Options = DefaultOptions
+
+	for _, param := range params {
+		switch v := param.(type) {
+		case string:
+			args = append(args, v)
+		case Options:
+			options = v
+		case []string:
+			args = append(args, v...)
+		default:
+			utils.Fatal("invalid parameter type: %T", v)
+		}
 	}
 
-	options := DefaultOptions
-	if len(opts) > 0 {
-		options = opts[0]
+	if len(args) == 0 {
+		utils.Fatal("no command specified")
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdin pipe: %v", err)
+		utils.Fatal("failed to create stdin pipe: %v", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %v", err)
+		utils.Fatal("failed to create stdout pipe: %v", err)
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %v", err)
+		utils.Fatal("failed to create stderr pipe: %v", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start process: %v", err)
+		utils.Fatal("failed to start process: %v", err)
 	}
 
 	p := &Proc{
@@ -63,17 +75,17 @@ func Process(args []string, opts ...Options) (*Proc, error) {
 		scanner: bufio.NewScanner(stdout),
 	}
 
-	return p, nil
+	return p
 }
 
 func (p *Proc) Send(data []byte) {
 	if p.closed {
-		log.Fatalf("broken tube")
+		utils.Fatal("broken tube")
 		return
 	}
 	_, err := p.stdin.Write(data)
 	if err != nil {
-		log.Fatalf("failed to send data: %v", err)
+		utils.Fatal("failed to send data: %v", err)
 	}
 	return
 }
@@ -85,7 +97,7 @@ func (p *Proc) SendLine(data []byte) {
 
 func (p *Proc) Recv(n ...int) []byte {
 	if p.closed {
-		log.Fatalf("broken tube")
+		utils.Fatal("broken tube")
 	}
 
 	if len(n) > 0 && n[0] > 0 {
@@ -97,7 +109,7 @@ func (p *Proc) Recv(n ...int) []byte {
 				if total > 0 {
 					return buf[:total]
 				}
-				log.Fatalf("recv error: %v", err)
+				utils.Fatal("recv error: %v", err)
 			}
 			total += read
 		}
@@ -110,21 +122,21 @@ func (p *Proc) Recv(n ...int) []byte {
 		if nRead > 0 {
 			return buf[:nRead]
 		}
-		log.Fatalf("recv error: %v", err)
+		utils.Fatal("recv error: %v", err)
 	}
 	return buf[:nRead]
 }
 
 func (p *Proc) RecvLine() []byte {
 	if p.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 	var buf bytes.Buffer
 	b := make([]byte, 1)
 	for {
 		_, err := p.stdout.Read(b)
 		if err != nil {
-			log.Fatalf("recv error: %v", err)
+			utils.Fatal("recv error: %v", err)
 		}
 		buf.Write(b)
 		if bytes.HasSuffix(buf.Bytes(), p.options.NewLine) {
@@ -136,14 +148,14 @@ func (p *Proc) RecvLine() []byte {
 
 func (p *Proc) RecvUntil(delim []byte) []byte {
 	if p.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 	var buf bytes.Buffer
 	b := make([]byte, 1)
 	for {
 		_, err := p.stdout.Read(b)
 		if err != nil {
-			log.Fatalf("recv error: %v", err)
+			utils.Fatal("recv error: %v", err)
 		}
 		buf.Write(b)
 		if bytes.HasSuffix(buf.Bytes(), delim) {
@@ -154,30 +166,41 @@ func (p *Proc) RecvUntil(delim []byte) []byte {
 
 func (p *Proc) RecvAll() []byte {
 	if p.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 	ret, err := io.ReadAll(p.stdout)
 	if err != nil {
-		log.Fatalf("recv error: %v", err)
+		utils.Fatal("recv error: %v", err)
 	}
 	return ret
 }
 
 func (p *Proc) Interactive() {
 	if p.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 
+	fmt.Printf("%s[*] copying tube for interactive shell....\n%s", utils.ColorYellow, utils.ColorReset)
+
 	go io.Copy(os.Stdout, p.stdout)
-
 	go io.Copy(os.Stderr, p.stderr)
-
-	io.Copy(p.stdin, os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Printf("%s[pwner]$%s ", utils.ColorRed, utils.ColorReset)
+	for scanner.Scan() {
+		line := scanner.Text()
+		p.stdin.Write([]byte(line + "\n"))
+		time.Sleep(100 * time.Millisecond)
+		if p.closed {
+			break
+		}
+		fmt.Printf("%s[pwner]$%s ", utils.ColorRed, utils.ColorReset)
+	}
+	os.Exit(0)
 }
 
 func (p *Proc) Close() {
 	if p.closed {
-		log.Fatalf("broken tube")
+		utils.Fatal("broken tube")
 	}
 	p.closed = true
 
@@ -191,6 +214,6 @@ func (p *Proc) Close() {
 
 	err := p.cmd.Wait()
 	if err != nil {
-		log.Fatalf("close error: %v", err)
+		utils.Fatal("close error: %v", err)
 	}
 }

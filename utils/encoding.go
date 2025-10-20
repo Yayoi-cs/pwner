@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/hex"
-	"log"
 	"strconv"
 )
 
@@ -21,7 +20,7 @@ func Hex(data []byte) string {
 func Strtou64(s string, base int) uint64 {
 	val, err := strconv.ParseUint(s, base, 64)
 	if err != nil {
-		log.Fatalf("ParseUint failed: %v", err)
+		Fatal("ParseUint failed: %v", err)
 	}
 	return val
 }
@@ -45,7 +44,7 @@ func Hextou64(s string) uint64 {
 func Strtou32(s string, base int) uint32 {
 	val, err := strconv.ParseUint(s, base, 32)
 	if err != nil {
-		log.Fatalf("ParseUint failed: %v", err)
+		Fatal("ParseUint failed: %v", err)
 	}
 	return uint32(val)
 }
@@ -69,7 +68,7 @@ func Hextou32(s string) uint32 {
 func Strtou16(s string, base int) uint16 {
 	val, err := strconv.ParseUint(s, base, 16)
 	if err != nil {
-		log.Fatalf("ParseUint failed: %v", err)
+		Fatal("ParseUint failed: %v", err)
 	}
 	return uint16(val)
 }
@@ -93,7 +92,7 @@ func Hextou16(s string) uint16 {
 func Strtou8(s string, base int) uint8 {
 	val, err := strconv.ParseUint(s, base, 8)
 	if err != nil {
-		log.Fatalf("ParseUint failed: %v", err)
+		Fatal("ParseUint failed: %v", err)
 	}
 	return uint8(val)
 }

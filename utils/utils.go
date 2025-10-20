@@ -1,6 +1,12 @@
 package utils
 
-import "reflect"
+import (
+	"fmt"
+	"os"
+	"reflect"
+	"runtime"
+)
+import "log"
 
 const (
 	ColorReset  = "\033[0m"
@@ -43,5 +49,47 @@ func Type2Color(v interface{}) string {
 		return ColorGray
 	default:
 		return ColorReset
+	}
+}
+
+var logger = log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile)
+
+func Fatal(format string, v ...interface{}) {
+	pc, _, _, _ := runtime.Caller(1)
+	funcName := runtime.FuncForPC(pc).Name()
+	logger.Fatalf("["+funcName+"] "+format, v...)
+}
+
+func Hexdump(data []byte) {
+	fmt.Println()
+	const bytesPerLine = 16
+
+	for i := 0; i < len(data); i += bytesPerLine {
+		fmt.Printf("  %08x  ", i)
+
+		for j := 0; j < bytesPerLine; j++ {
+			if i+j < len(data) {
+				fmt.Printf("%02x ", data[i+j])
+			} else {
+				fmt.Print("   ")
+			}
+
+			// Add extra space in the middle
+			if j == 7 {
+				fmt.Print(" ")
+			}
+		}
+
+		fmt.Print(" |")
+		for j := 0; j < bytesPerLine && i+j < len(data); j++ {
+			b := data[i+j]
+			if b >= 32 && b <= 126 {
+				fmt.Printf("%c", b)
+			} else {
+				fmt.Print(".")
+			}
+		}
+		fmt.Print("|")
+		fmt.Println()
 	}
 }

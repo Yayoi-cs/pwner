@@ -41,6 +41,12 @@ func Dump(vals ...interface{}) {
 func printHex(v interface{}) {
 	val := reflect.ValueOf(v)
 
+	if val.Kind() == reflect.Slice && val.Type().Elem().Kind() == reflect.Uint8 {
+		data := v.([]byte)
+		utils.Hexdump(data)
+		return
+	}
+
 	switch val.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		num := val.Int()

@@ -1,12 +1,13 @@
 package tube
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
+	"pwner/utils"
 	"time"
 )
 
@@ -26,7 +27,7 @@ func Remote(host string, port int, opts ...Options) *Remoter {
 	address := fmt.Sprintf("%s:%d", host, port)
 	conn, err := net.DialTimeout("tcp", address, options.Timeout)
 	if err != nil {
-		log.Fatalf("failed to connect to %s: %v", address, err)
+		utils.Fatal("failed to connect to %s: %v", address, err)
 	}
 
 	r := &Remoter{
@@ -46,7 +47,7 @@ func Remote(host string, port int, opts ...Options) *Remoter {
 
 func (r *Remoter) Send(data []byte) {
 	if r.closed {
-		log.Fatalf("broken tube")
+		utils.Fatal("broken tube")
 		return
 	}
 
@@ -56,7 +57,7 @@ func (r *Remoter) Send(data []byte) {
 
 	_, err := r.conn.Write(data)
 	if err != nil {
-		log.Fatalf("failed to send data: %v", err)
+		utils.Fatal("failed to send data: %v", err)
 	}
 	return
 }
@@ -67,7 +68,7 @@ func (r *Remoter) SendLine(data []byte) {
 }
 func (r *Remoter) Recv(n ...int) []byte {
 	if r.closed {
-		log.Fatalf("broken tube")
+		utils.Fatal("broken tube")
 	}
 
 	if r.options.Timeout > 0 {
@@ -83,7 +84,7 @@ func (r *Remoter) Recv(n ...int) []byte {
 				if total > 0 {
 					return buf[:total]
 				}
-				log.Fatalf("recv error: %v", err)
+				utils.Fatal("recv error: %v", err)
 			}
 			total += read
 		}
@@ -96,14 +97,14 @@ func (r *Remoter) Recv(n ...int) []byte {
 		if nRead > 0 {
 			return buf[:nRead]
 		}
-		log.Fatalf("recv error: %v", err)
+		utils.Fatal("recv error: %v", err)
 	}
 	return buf[:nRead]
 }
 
 func (r *Remoter) RecvLine() []byte {
 	if r.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 
 	if r.options.Timeout > 0 {
@@ -115,7 +116,7 @@ func (r *Remoter) RecvLine() []byte {
 	for {
 		_, err := r.conn.Read(b)
 		if err != nil {
-			log.Fatalf("recv error: %v", err)
+			utils.Fatal("recv error: %v", err)
 		}
 		buf.Write(b)
 		if bytes.HasSuffix(buf.Bytes(), r.options.NewLine) {
@@ -127,7 +128,7 @@ func (r *Remoter) RecvLine() []byte {
 
 func (r *Remoter) RecvUntil(delim []byte) []byte {
 	if r.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 
 	if r.options.Timeout > 0 {
@@ -139,7 +140,7 @@ func (r *Remoter) RecvUntil(delim []byte) []byte {
 	for {
 		_, err := r.conn.Read(b)
 		if err != nil {
-			log.Fatalf("recv error: %v", err)
+			utils.Fatal("recv error: %v", err)
 		}
 		buf.Write(b)
 		if bytes.HasSuffix(buf.Bytes(), delim) {
@@ -150,38 +151,49 @@ func (r *Remoter) RecvUntil(delim []byte) []byte {
 
 func (r *Remoter) RecvAll() []byte {
 	if r.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 
 	r.conn.SetReadDeadline(time.Time{})
 
 	ret, err := io.ReadAll(r.conn)
 	if err != nil {
-		log.Fatalf("recv error: %v", err)
+		utils.Fatal("recv error: %v", err)
 	}
 	return ret
 }
 
 func (r *Remoter) Interactive() {
 	if r.closed {
-		log.Fatalf("tube is closed")
+		utils.Fatal("tube is closed")
 	}
 
 	r.conn.SetReadDeadline(time.Time{})
 
 	go io.Copy(os.Stdout, r.conn)
 
-	io.Copy(r.conn, os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Printf("%s[pwner]$%s ", utils.ColorRed, utils.ColorReset)
+	for scanner.Scan() {
+		line := scanner.Text()
+		r.conn.Write([]byte(line + "\n"))
+		time.Sleep(100 * time.Millisecond)
+		if r.closed {
+			break
+		}
+		fmt.Printf("%s[pwner]$%s ", utils.ColorRed, utils.ColorReset)
+	}
+	os.Exit(0)
 }
 
 func (r *Remoter) Close() {
 	if r.closed {
-		log.Fatalf("broken tube")
+		utils.Fatal("broken tube")
 	}
 	r.closed = true
 	err := r.conn.Close()
 	if err != nil {
-		log.Fatalf("close error: %v", err)
+		utils.Fatal("close error: %v", err)
 	}
 }
 

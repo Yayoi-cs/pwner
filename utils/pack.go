@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/binary"
-	"log"
 )
 
 type Endian int
@@ -36,17 +35,16 @@ func P64(v uint64, endian ...Endian) []byte {
 	e.PutUint64(buf, v)
 	return buf
 }
-
 func U8(data []byte) uint8 {
 	if len(data) < 1 {
-		log.Fatalf("U8: insufficient data length, need 1 byte, got %d", len(data))
+		data = append(data, make([]byte, 1-len(data))...)
 	}
 	return data[0]
 }
 
 func U16(data []byte, endian ...Endian) uint16 {
 	if len(data) < 2 {
-		log.Fatalf("U16: insufficient data length, need 2 bytes, got %d", len(data))
+		data = append(data, make([]byte, 2-len(data))...)
 	}
 	e := getEndian(endian...)
 	return e.Uint16(data[:2])
@@ -54,7 +52,7 @@ func U16(data []byte, endian ...Endian) uint16 {
 
 func U32(data []byte, endian ...Endian) uint32 {
 	if len(data) < 4 {
-		log.Fatalf("U32: insufficient data length, need 4 bytes, got %d", len(data))
+		data = append(data, make([]byte, 4-len(data))...)
 	}
 	e := getEndian(endian...)
 	return e.Uint32(data[:4])
@@ -62,7 +60,7 @@ func U32(data []byte, endian ...Endian) uint32 {
 
 func U64(data []byte, endian ...Endian) uint64 {
 	if len(data) < 8 {
-		log.Fatalf("U64: insufficient data length, need 8 bytes, got %d", len(data))
+		data = append(data, make([]byte, 8-len(data))...)
 	}
 	e := getEndian(endian...)
 	return e.Uint64(data[:8])
